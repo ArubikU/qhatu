@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+model OtpRequest {
+  id        String   @id @default(cuid())
+  emailHash String
+  otpHash   String   // SHA-256 of OTP+salt — never store plain OTP
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([emailHash])
+  @@map("otp_requests")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique // SHA-256 of token
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+enum QrStatus {
+  PENDING
+  APPROVED
+  CONSUMED
+  EXPIRED
+}
+
+// Rotating QR login session. Desktop creates one + shows it as a QR; a logged-in
+// phone scans and approves; desktop then claims tokens. Short TTL = the rotation.
+model QrLoginSession {
+  id             String   @id @default(cuid())
+  status         QrStatus @default(PENDING)
+  approvedUserId String?
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  @@index([expiresAt])
+  @@map("qr_login_sessions")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id                 String    @id @default(cuid())
+  emailHash          String    @unique // SHA-256+salt, NEVER plain text
+  nickname           String    @unique
+  avatarSeed         String    // letter/color seed for generated avatar
+  avatarUrl          String?   // optional real image (e.g. seeded Twitter profile picture)
+  faculty            String?
+  ageRange           String?   // "18-20" | "21-23" | "24-26" | "27+"
+  gender             String?   // "M" | "F" | "NB" | null
+  universityDomain   String    // e.g. "uni.edu.pe"
+  streakCount        Int       @default(0)
+  prestige           Int       @default(0) // completed 365-day cycles → upgrades streak material (cobre→hierro→…)
+  lastPostDate       DateTime?
+  totalLikesEarned   Int       @default(0)
+  lastNicknameChange DateTime?
+  bestRank           Int?      // best daily-ranking position ever (1 = top)
+  // Equipped cosmetics (reward ids from the shared catalog)
+  equippedFrame      String?
+  equippedNameEffect String?
+  equippedBadge      String?
+  equippedTitle      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime? // soft delete (account deletion)
+
+  // Relations
+  posts              Post[]
+  reactions          Reaction[]
+  comments           Comment[]
+  follows            UserFollow[]         @relation("follower")
+  blocks             UserBlock[]          @relation("blocker")
+  notifications      Notification[]
+  feedViews          FeedView[]
+  pushTokens         PushToken[]
+  refreshTokens      RefreshToken[]
+  achievements       UserAchievement[]
+  rewards            UserReward[]
+  dailyRankings      DailyRanking[]
+  interestVector     UserInterestVector?
+  authorAffinities   UserAuthorAffinity[] @relation("viewer")
+  receivedAffinities UserAuthorAffinity[] @relation("author")
+
+  @@index([universityDomain])
+  @@map("users")
+}
+
+// ─── Posts ────────────────────────────────────────────────────────────────────
+
+enum PostType {
+  TEXT
+  POLL
+  EPHEMERAL
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Post {
+  id                 String    @id @default(cuid())
+  authorId           String
+  content            String    @db.VarChar(1000)
+  type               PostType  @default(TEXT)
+  score              Float     @default(0)
+  velocityScore      Float     @default(0)
+  isIdentityRevealed Boolean   @default(false)
+  reportsCount       Int       @default(0)
+  // Denormalized reaction counts (updated in use case; workers take over in S3)
+  likesCount         Int       @default(0)
+  fireCount          Int       @default(0)
+  teaCount           Int       @default(0)
+  dedCount           Int       @default(0)
+  commentsCount      Int       @default(0)
+  expiresAt          DateTime? // only for EPHEMERAL (createdAt + 24h)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime? // soft delete
+
+  author    User          @relation(fields: [authorId], references: [id])
+  reactions Reaction[]
+  comments  Comment[]
+  feedViews FeedView[]
+  hashtags  PostHashtag[]
+  media     PostMedia[]
+  poll      Poll?
+  embedding PostEmbedding?
+
+  @@index([authorId])
+  @@index([createdAt(sort: Desc)])
+  @@index([score(sort: Desc)])
+  @@index([expiresAt])
+  @@index([deletedAt])
+  @@map("posts")
+}
+
+model PostMedia {
+  id        String    @id @default(cuid())
+  postId    String
+  key       String    // storage object key (resolved to URL at read time)
+  type      MediaType
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("post_media")
+}
+
+// ─── Polls ────────────────────────────────────────────────────────────────────
+
+model Poll {
+  id        String     @id @default(cuid())
+  postId    String     @unique
+  question  String
+
+  post    Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options PollOption[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  text   String
+  order  Int
+
+  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@map("poll_options")
+}
+
+model PollVote {
+  id          String   @id @default(cuid())
+  optionId    String
+  voterHash   String   // SHA-256 of userId+postId — anonymous
+  createdAt   DateTime @default(now())
+
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, voterHash])
+  @@map("poll_votes")
+}
+
+// ─── Hashtags ─────────────────────────────────────────────────────────────────
+
+model Hashtag {
+  id        String   @id @default(cuid())
+  tag       String   @unique // without #, lowercase
+  postCount Int      @default(0)
+  createdAt DateTime @default(now())
+
+  posts   PostHashtag[]
+  follows UserFollow[]
+
+  @@map("hashtags")
+}
+
+model PostHashtag {
+  postId    String
+  hashtagId String
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id])
+
+  @@id([postId, hashtagId])
+  @@map("post_hashtags")
+}
+
+// ─── Reactions & Comments ─────────────────────────────────────────────────────
+
+enum ReactionType {
+  LIKE
+  FIRE
+  TEA
+  DED
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  postId    String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, type])
+  @@index([postId])
+  @@map("reactions")
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String    @db.VarChar(300)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@map("comments")
+}
+
+// ─── Social Graph ─────────────────────────────────────────────────────────────
+
+model UserFollow {
+  id              String   @id @default(cuid())
+  followerId      String
+  targetNickname  String?  // follow a user (by nickname — anonymous)
+  targetHashtagId String?  // follow a hashtag
+  createdAt       DateTime @default(now())
+
+  follower User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  hashtag  Hashtag? @relation(fields: [targetHashtagId], references: [id])
+
+  @@unique([followerId, targetNickname])
+  @@unique([followerId, targetHashtagId])
+  @@index([followerId])
+  @@map("user_follows")
+}
+
+model UserBlock {
+  id              String   @id @default(cuid())
+  blockerId       String
+  blockedNickname String
+  createdAt       DateTime @default(now())
+
+  blocker User @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedNickname])
+  @@map("user_blocks")
+}
+
+// ─── Feed & Notifications ─────────────────────────────────────────────────────
+
+model FeedView {
+  id       String   @id @default(cuid())
+  userId   String
+  postId   String
+  viewedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@map("feed_views")
+}
+
+enum NotificationType {
+  REACTION
+  COMMENT
+  TRENDING
+  RANKING
+  STREAK_MILESTONE
+  NEW_FOLLOWER
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  payload   Json
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model PushToken {
+  id           String   @id @default(cuid())
+  userId       String
+  subscription String   @db.Text // JSON PushSubscription
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+model Achievement {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  description String
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// Owned cosmetic rewards (catalog lives in @qhatu/shared; we only store ids)
+model UserReward {
+  userId     String
+  rewardId   String
+  unlockedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, rewardId])
+  @@index([userId])
+  @@map("user_rewards")
+}
+
+enum RankingType {
+  LIKES_RECEIVED
+  POSTS_PUBLISHED
+  COMMENTS_MADE
+}
+
+model DailyRanking {
+  id        String      @id @default(cuid())
+  userId    String
+  date      DateTime    @db.Date
+  type      RankingType
+  value     Int
+  rank      Int
+  createdAt DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([date, type, userId])
+  @@index([date, type])
+  @@map("daily_rankings")
+}
+
+// ─── Algorithm ────────────────────────────────────────────────────────────────
+
+model UserInterestVector {
+  userId    String   @id
+  // 128-dim stored as Float array (upgrade to pgvector in Sprint 3)
+  vector    Float[]
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_interest_vectors")
+}
+
+model PostEmbedding {
+  postId    String   @id
+  vector    Float[]
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_embeddings")
+}
+
+model UserAuthorAffinity {
+  viewerId  String
+  authorId  String
+  score     Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  viewer User @relation("viewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  author User @relation("author", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([viewerId, authorId])
+  @@index([viewerId])
+  @@map("user_author_affinities")
+}
