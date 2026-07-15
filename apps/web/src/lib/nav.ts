@@ -13,14 +13,14 @@ type AppRouter = ReturnType<typeof useRouter>
  */
 export function pushWithFallback(router: AppRouter, href: string): void {
   if (typeof window === 'undefined') return
-  const target = href.split('?')[0]
-  const before = window.location.pathname
-  if (before === target) return // ya estamos ahí
+  const current = window.location.pathname + window.location.search
+  if (current === href) return // ya estamos ahí
 
   try { router.push(href) } catch { window.location.assign(href); return }
 
   window.setTimeout(() => {
-    // Si la transición commiteó, pathname ya cambió y no hacemos nada.
-    if (window.location.pathname === before) window.location.assign(href)
+    // Si la transición commiteó, la URL ya cambió y no hacemos nada.
+    const now = window.location.pathname + window.location.search
+    if (now === current) window.location.assign(href)
   }, 500)
 }
