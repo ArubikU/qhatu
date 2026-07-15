@@ -1,16 +1,1 @@
-{
-  "projectId": "prj_Zuz7GP6XDCClXXQOs7KNSmj8Zh9j",
-  "orgId": "team_l9avIRCZ0vgT9iu0jW1LVrER",
-  "projectName": "qhatu-api",
-  "settings": {
-    "createdAt": 1784076458176,
-    "framework": "fastify",
-    "devCommand": null,
-    "installCommand": "cd ../.. && bun install",
-    "buildCommand": null,
-    "outputDirectory": null,
-    "rootDirectory": null,
-    "directoryListing": false,
-    "nodeVersion": "24.x"
-  }
-}
+{"projectId":"prj_Xydw6QnAFtJ9DzFCqyA51yusUDta","orgId":"team_l9avIRCZ0vgT9iu0jW1LVrER","projectName":"qhatu"}

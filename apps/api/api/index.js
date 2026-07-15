@@ -779,6 +779,9 @@ var PrismaUserRepository = class {
   async updateAvatarSeed(userId, avatarSeed) {
     await this.db.user.update({ where: { id: userId }, data: { avatarSeed } });
   }
+  async updateNickname(userId, nickname) {
+    await this.db.user.update({ where: { id: userId }, data: { nickname } });
+  }
   async softDeleteUser(userId) {
     await this.db.$transaction([
       this.db.user.update({ where: { id: userId }, data: { deletedAt: /* @__PURE__ */ new Date() } }),
@@ -848,6 +851,9 @@ var PrismaUserRepository = class {
     await this.db.refreshToken.deleteMany({
       where: { userId, expiresAt: { lt: /* @__PURE__ */ new Date() } }
     });
+  }
+  async deleteAllRefreshTokens(userId) {
+    await this.db.refreshToken.deleteMany({ where: { userId } });
   }
   // ─── Actualiza facultad, edad y género del usuario ───
   async updateProfile(userId, data) {
@@ -1113,7 +1119,54 @@ var RefreshTokenUseCase = class {
   }
 };
 
+// src/application/auth/RecoverAccountUseCase.ts
+var RecoverAccountUseCase = class {
+  constructor(userRepo, jwt2) {
+    this.userRepo = userRepo;
+    this.jwt = jwt2;
+  }
+  async execute(input) {
+    const { email, otp } = input;
+    const emailHash = hashEmail(email);
+    const otpRequest = await this.userRepo.findValidOtpRequest(emailHash);
+    if (!otpRequest) {
+      throw new Error("No hay un c\xF3digo v\xE1lido para este correo. Solicita uno nuevo.");
+    }
+    if (otpRequest.attempts >= 5) {
+      throw new Error("Demasiados intentos fallidos. Solicita un nuevo c\xF3digo.");
+    }
+    if (hashToken(otp) !== otpRequest.otpHash) {
+      await this.userRepo.incrementOtpAttempts(otpRequest.id);
+      throw new Error("C\xF3digo incorrecto.");
+    }
+    await this.userRepo.markOtpUsed(otpRequest.id);
+    const user = await this.userRepo.findByEmailHash(emailHash);
+    if (!user) {
+      throw new Error("No existe una cuenta con este correo.");
+    }
+    const newNickname = await generateUniqueNickname((n) => this.userRepo.nicknameExists(n));
+    const newAvatar = Math.random().toString(36).slice(2, 10);
+    await this.userRepo.updateNickname(user.id, newNickname);
+    await this.userRepo.updateAvatarSeed(user.id, newAvatar);
+    await this.userRepo.deleteAllRefreshTokens(user.id);
+    const accessToken = this.jwt.sign(
+      { sub: user.id, nickname: newNickname },
+      { expiresIn: "15m" }
+    );
+    const rawRefreshToken = generateRefreshToken();
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3);
+    await this.userRepo.createRefreshToken(user.id, refreshTokenHash, refreshExpiry);
+    return {
+      accessToken,
+      refreshToken: rawRefreshToken,
+      user: { nickname: newNickname, avatarSeed: newAvatar, faculty: user.faculty }
+    };
+  }
+};
+
 // src/routes/auth.ts
+init_templates();
 var RT_COOKIE = "qhatu_rt";
 var cookieOpts = {
   httpOnly: true,
@@ -1150,6 +1203,68 @@ var authRoutes = async (app) => {
       const body = EmailLookupSchema.parse(request.body);
       const existing = await userRepo.findByEmailHash(hashEmail(body.email));
       return reply.send({ exists: Boolean(existing) });
+    }
+  );
+  app.post(
+    "/account/recover-request",
+    {
+      config: { rateLimit: { max: 3, timeWindow: "5 minutes" } },
+      schema: {
+        body: (0, import_zod_to_json_schema.zodToJsonSchema)(EmailLookupSchema),
+        response: { 200: (0, import_zod_to_json_schema.zodToJsonSchema)(import_zod6.z.object({ message: import_zod6.z.string() })) }
+      }
+    },
+    async (request, reply) => {
+      const body = EmailLookupSchema.parse(request.body);
+      const emailHash = hashEmail(body.email);
+      const user = await userRepo.findByEmailHash(emailHash);
+      if (user) {
+        const otp = generateOtp();
+        await userRepo.createOtpRequest(emailHash, hashToken(otp), new Date(Date.now() + 15 * 60 * 1e3));
+        emailService.send(body.email, otpEmail(otp)).catch(() => null);
+      }
+      return reply.send({ message: "Si el correo tiene una cuenta, te enviamos un c\xF3digo." });
+    }
+  );
+  const RecoverConfirmSchema = import_zod6.z.object({
+    email: RegisterSchema.shape.email,
+    otp: import_zod6.z.string().length(6)
+  });
+  app.post(
+    "/account/recover-confirm",
+    {
+      config: { rateLimit: { max: 5, timeWindow: "5 minutes" } },
+      schema: {
+        body: (0, import_zod_to_json_schema.zodToJsonSchema)(RecoverConfirmSchema),
+        response: {
+          200: (0, import_zod_to_json_schema.zodToJsonSchema)(
+            import_zod6.z.object({
+              accessToken: import_zod6.z.string(),
+              user: import_zod6.z.object({
+                nickname: import_zod6.z.string(),
+                avatarSeed: import_zod6.z.string(),
+                faculty: import_zod6.z.string().nullable()
+              })
+            })
+          )
+        }
+      }
+    },
+    async (request, reply) => {
+      const body = RecoverConfirmSchema.parse(request.body);
+      const useCase = new RecoverAccountUseCase(userRepo, app.jwt);
+      try {
+        const { accessToken, refreshToken, user } = await useCase.execute({
+          email: body.email,
+          otp: body.otp,
+          device: summariseUserAgent(request.headers["user-agent"])
+        });
+        reply.setCookie(RT_COOKIE, refreshToken, cookieOpts);
+        return reply.send({ accessToken, user });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Error al recuperar la cuenta";
+        throw app.httpErrors.badRequest(message);
+      }
     }
   );
   app.post(

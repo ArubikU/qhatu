@@ -18,6 +18,7 @@ export interface IUserRepository {
   emailHashExists(emailHash: string): Promise<boolean>
   updateEmailHash(userId: string, emailHash: string, universityDomain: string): Promise<void>
   updateAvatarSeed(userId: string, avatarSeed: string): Promise<void>
+  updateNickname(userId: string, nickname: string): Promise<void>
   updateProfile(userId: string, data: { faculty?: string; ageRange?: string; gender?: string }): Promise<void>
   softDeleteUser(userId: string): Promise<void>
   create(data: CreateUserData): Promise<User>
@@ -37,4 +38,5 @@ export interface IUserRepository {
   ): Promise<{ id: string; userId: string; expiresAt: Date } | null>
   deleteRefreshToken(id: string): Promise<void>
   deleteExpiredRefreshTokens(userId: string): Promise<void>
+  deleteAllRefreshTokens(userId: string): Promise<void>
 }

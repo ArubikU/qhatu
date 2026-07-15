@@ -11,8 +11,10 @@ import { ResendEmailService } from '../infrastructure/email/ResendEmailService'
 import { RegisterUseCase } from '../application/auth/RegisterUseCase'
 import { VerifyOtpUseCase } from '../application/auth/VerifyOtpUseCase'
 import { RefreshTokenUseCase } from '../application/auth/RefreshTokenUseCase'
-import { hashToken } from '../infrastructure/security/hashToken'
+import { RecoverAccountUseCase } from '../application/auth/RecoverAccountUseCase'
+import { hashToken, generateOtp } from '../infrastructure/security/hashToken'
 import { hashEmail } from '../infrastructure/security/hashEmail'
+import { otpEmail } from '../infrastructure/email/templates'
 
 // Refresh token cookie name
 const RT_COOKIE = 'qhatu_rt'
@@ -59,6 +61,75 @@ const authRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       const body = EmailLookupSchema.parse(request.body)
       const existing = await userRepo.findByEmailHash(hashEmail(body.email))
       return reply.send({ exists: Boolean(existing) })
+    },
+  )
+
+  // ─── POST /auth/account/recover-request ───────────────────────────────────────
+  // "Perdí mi cuenta" — envía OTP al correo de una cuenta existente.
+  app.post(
+    '/account/recover-request',
+    {
+      config: { rateLimit: { max: 3, timeWindow: '5 minutes' } },
+      schema: {
+        body: zodToJsonSchema(EmailLookupSchema),
+        response: { 200: zodToJsonSchema(z.object({ message: z.string() })) },
+      },
+    },
+    async (request, reply) => {
+      const body = EmailLookupSchema.parse(request.body)
+      const emailHash = hashEmail(body.email)
+      const user = await userRepo.findByEmailHash(emailHash)
+      // Solo enviamos si existe; respuesta genérica para no revelar existencia.
+      if (user) {
+        const otp = generateOtp()
+        await userRepo.createOtpRequest(emailHash, hashToken(otp), new Date(Date.now() + 15 * 60 * 1000))
+        emailService.send(body.email, otpEmail(otp)).catch(() => null)
+      }
+      return reply.send({ message: 'Si el correo tiene una cuenta, te enviamos un código.' })
+    },
+  )
+
+  // ─── POST /auth/account/recover-confirm ───────────────────────────────────────
+  // Valida OTP → reinicia identidad (posts intactos) → nueva sesión.
+  const RecoverConfirmSchema = z.object({
+    email: RegisterSchema.shape.email,
+    otp:   z.string().length(6),
+  })
+  app.post(
+    '/account/recover-confirm',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '5 minutes' } },
+      schema: {
+        body: zodToJsonSchema(RecoverConfirmSchema),
+        response: {
+          200: zodToJsonSchema(
+            z.object({
+              accessToken: z.string(),
+              user: z.object({
+                nickname:   z.string(),
+                avatarSeed: z.string(),
+                faculty:    z.string().nullable(),
+              }),
+            }),
+          ),
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = RecoverConfirmSchema.parse(request.body)
+      const useCase = new RecoverAccountUseCase(userRepo, app.jwt)
+      try {
+        const { accessToken, refreshToken, user } = await useCase.execute({
+          email:  body.email,
+          otp:    body.otp,
+          device: summariseUserAgent(request.headers['user-agent']),
+        })
+        reply.setCookie(RT_COOKIE, refreshToken, cookieOpts)
+        return reply.send({ accessToken, user })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error al recuperar la cuenta'
+        throw app.httpErrors.badRequest(message)
+      }
     },
   )
 

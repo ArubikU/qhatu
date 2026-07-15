@@ -348,6 +348,14 @@ function OTPStep() {
           className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#6b2fe2] disabled:bg-white/10 disabled:text-white/30 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl shadow-[0_0_25px_rgba(123,63,242,0.4)] disabled:shadow-none transition-all duration-200 font-heading">
           {loading ? <><Loader2 size={18} className="animate-spin" />Verificando...</> : <><CheckCircle size={18} />Verificar código</>}
         </button>
+
+        {isLoginMode && (
+          <button type="button" onClick={() => router.push('/recover')}
+            className="mt-4 text-white/40 text-sm text-center hover:text-white/70 transition-colors font-body">
+            ¿No recibes el código o perdiste tu cuenta?{' '}
+            <span className="text-lavender">Recupérala</span>
+          </button>
+        )}
       </motion.div>
     </AuthShell>
   )

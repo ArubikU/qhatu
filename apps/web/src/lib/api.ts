@@ -200,6 +200,19 @@ export const api = {
     refresh: () =>
       request<{ accessToken: string }>('/auth/refresh', { method: 'POST' }),
 
+    // ── "Perdí mi cuenta": OTP al correo → reinicia identidad (posts intactos) ──
+    recoverRequest: (email: string) =>
+      request<{ message: string }>('/auth/account/recover-request', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+
+    recoverConfirm: (email: string, otp: string) =>
+      request<{ accessToken: string; user: AuthUser }>('/auth/account/recover-confirm', {
+        method: 'POST',
+        body: JSON.stringify({ email, otp }),
+      }),
+
     logout: (token: string) =>
       request<{ message: string }>('/auth/logout', { method: 'POST', token }),
 

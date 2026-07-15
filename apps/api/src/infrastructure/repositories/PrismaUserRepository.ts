@@ -69,6 +69,10 @@ export class PrismaUserRepository implements IUserRepository {
     await this.db.user.update({ where: { id: userId }, data: { avatarSeed } })
   }
 
+  async updateNickname(userId: string, nickname: string): Promise<void> {
+    await this.db.user.update({ where: { id: userId }, data: { nickname } })
+  }
+
   async softDeleteUser(userId: string): Promise<void> {
     await this.db.$transaction([
       this.db.user.update({ where: { id: userId }, data: { deletedAt: new Date() } }),
@@ -152,6 +156,10 @@ export class PrismaUserRepository implements IUserRepository {
     await this.db.refreshToken.deleteMany({
       where: { userId, expiresAt: { lt: new Date() } },
     })
+  }
+
+  async deleteAllRefreshTokens(userId: string): Promise<void> {
+    await this.db.refreshToken.deleteMany({ where: { userId } })
   }
 
   // ─── Actualiza facultad, edad y género del usuario ───
