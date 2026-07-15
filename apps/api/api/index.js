@@ -1870,17 +1870,30 @@ var PrismaPostRepository = class {
   }
   // ─── S3: full ranker support ─────────────────────────────────────────────────
   async getCandidates(viewerId, universityDomain, limit) {
-    const posts = await this.db.post.findMany({
-      where: {
-        deletedAt: null,
-        author: { universityDomain },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: /* @__PURE__ */ new Date() } }]
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      include: FEED_INCLUDE(viewerId)
+    const notExpired = { OR: [{ expiresAt: null }, { expiresAt: { gt: /* @__PURE__ */ new Date() } }] };
+    const follows = await this.db.userFollow.findMany({
+      where: { followerId: viewerId },
+      select: { targetNickname: true }
     });
-    return this._mapPosts(posts, viewerId);
+    const followedNicks = follows.map((f) => f.targetNickname).filter((n) => !!n);
+    const [followed, general] = await Promise.all([
+      followedNicks.length ? this.db.post.findMany({
+        where: { deletedAt: null, ...notExpired, author: { nickname: { in: followedNicks } } },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: FEED_INCLUDE(viewerId)
+      }) : Promise.resolve([]),
+      // Pool general reciente (global). El ranker prioriza misma-uni/afinidad/follow.
+      this.db.post.findMany({
+        where: { deletedAt: null, ...notExpired },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: FEED_INCLUDE(viewerId)
+      })
+    ]);
+    const seen = /* @__PURE__ */ new Set();
+    const merged = [...followed, ...general].filter((p) => seen.has(p.id) ? false : (seen.add(p.id), true)).slice(0, limit);
+    return this._mapPosts(merged, viewerId);
   }
   // Shared async mapper: resolves media keys → URLs (presigned for private buckets)
   async _mapPosts(posts, viewerId) {

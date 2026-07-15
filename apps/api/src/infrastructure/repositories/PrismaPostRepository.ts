@@ -268,18 +268,44 @@ export class PrismaPostRepository implements IPostRepository {
   // ─── S3: full ranker support ─────────────────────────────────────────────────
 
   async getCandidates(viewerId: string, universityDomain: string, limit: number): Promise<PostWithMeta[]> {
-    const posts = await this.db.post.findMany({
-      where: {
-        deletedAt: null,
-        author: { universityDomain },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: FEED_INCLUDE(viewerId),
-    })
+    const notExpired = { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
 
-    return this._mapPosts(posts, viewerId)
+    // Nicknames que el viewer sigue — sus posts SIEMPRE entran al pool de candidatos
+    // (antes se ignoraba el follow graph y se filtraba duro por universidad, así que
+    //  "Para ti" salía vacío para dominios sin seed aunque siguieras a alguien).
+    const follows = await this.db.userFollow.findMany({
+      where: { followerId: viewerId },
+      select: { targetNickname: true },
+    })
+    const followedNicks = follows
+      .map((f) => f.targetNickname)
+      .filter((n): n is string => !!n)
+
+    const [followed, general] = await Promise.all([
+      followedNicks.length
+        ? this.db.post.findMany({
+            where: { deletedAt: null, ...notExpired, author: { nickname: { in: followedNicks } } },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            include: FEED_INCLUDE(viewerId),
+          })
+        : Promise.resolve([]),
+      // Pool general reciente (global). El ranker prioriza misma-uni/afinidad/follow.
+      this.db.post.findMany({
+        where: { deletedAt: null, ...notExpired },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: FEED_INCLUDE(viewerId),
+      }),
+    ])
+
+    // Merge: seguidos primero, luego general; dedupe por id, cap al límite.
+    const seen = new Set<string>()
+    const merged = [...followed, ...general]
+      .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+      .slice(0, limit)
+
+    return this._mapPosts(merged, viewerId)
   }
 
   // Shared async mapper: resolves media keys → URLs (presigned for private buckets)
