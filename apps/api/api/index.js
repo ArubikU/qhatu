@@ -2315,7 +2315,8 @@ var GetFeedUseCase = class {
         timeOfDayMatch: isActiveHour(),
         isColdStart: viewerCtx.isColdStart
       };
-      return { post, score: computeFinalScore(metrics, ctx) };
+      const jitter = 1 + (Math.random() - 0.5) * 0.35;
+      return { post, score: computeFinalScore(metrics, ctx) * jitter };
     });
     const heuristicPosts = applyHeuristics(ranked, CANDIDATE_POOL);
     let startIdx = 0;

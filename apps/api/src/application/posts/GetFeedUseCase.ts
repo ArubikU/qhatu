@@ -113,7 +113,10 @@ export class GetFeedUseCase {
         isColdStart:        viewerCtx.isColdStart,
       }
 
-      return { post, score: computeFinalScore(metrics, ctx) }
+      // ─── Exploración: jitter aleatorio ±~17% para que el FYP no sea idéntico
+      //     en cada carga y ocasionalmente asome contenido de menor ranking. ───
+      const jitter = 1 + (Math.random() - 0.5) * 0.35
+      return { post, score: computeFinalScore(metrics, ctx) * jitter }
     })
 
     // Apply post-ranking heuristics (diversity, freshness, report cascade)
