@@ -4,6 +4,7 @@ import { AuthProvider } from '@/components/AuthProvider'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { PWAProvider } from '@/components/providers/PWAProvider'
 import { AppFrame } from '@/components/layout/AppFrame'
+import { SchedulerKick } from '@/components/layout/SchedulerKick'
 import './globals.css'
 
 const poppins = Poppins({
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${poppins.variable} ${inter.variable}`}>
       <body className="bg-carbon text-white font-body antialiased">
+        <SchedulerKick />
         <QueryProvider>
           <AuthProvider>
             <PWAProvider>
