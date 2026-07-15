@@ -105,8 +105,8 @@ export function layout({ title, preview, body }: LayoutOpts): string {
           <tr>
             <td align="center" style="padding-bottom:24px;">
               <a href="${base}" target="_blank" style="text-decoration:none;">
-                <img src="${base}/logotipo.png" alt="Qhatu" height="28"
-                     style="height:28px;width:auto;border:0;outline:none;display:block;">
+                <img src="${base}/logotipo.png" alt="Qhatu" height="84"
+                     style="height:84px;width:auto;border:0;outline:none;display:block;">
               </a>
             </td>
           </tr>
