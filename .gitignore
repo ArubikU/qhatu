@@ -8,3 +8,4 @@ dist
 .turbo
 coverage
 prisma/migrations/*.sql.bak
+.vercel
