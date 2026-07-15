@@ -21,6 +21,12 @@ interface UIState {
   openCompose: () => void
   closeCompose: () => void
 
+  // Nav flush tick — un update síncrono para descargar la transición atascada
+  // del App Router (ver lib/nav.ts). Bumpear re-renderiza <NavFlush/> → React
+  // flushea la navegación SPA pendiente sin recarga dura.
+  navTick: number
+  bumpNav: () => void
+
   // Confirm dialog (promise-based)
   confirm: ConfirmState
   _openConfirm: (cfg: ConfirmConfig, resolve: (ok: boolean) => void) => void
@@ -31,6 +37,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   composeOpen: false,
   openCompose:  () => set({ composeOpen: true }),
   closeCompose: () => set({ composeOpen: false }),
+
+  navTick: 0,
+  bumpNav: () => set((s) => ({ navTick: s.navTick + 1 })),
 
   confirm: { open: false, title: '' },
   _openConfirm: (cfg, resolve) => set({ confirm: { ...cfg, open: true, resolve } }),

@@ -5,6 +5,7 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { RightRail } from '@/components/layout/RightRail'
 import { GlobalComposer } from '@/components/layout/GlobalComposer'
 import { ConfirmHost } from '@/components/ui/ConfirmHost'
+import { NavFlush } from '@/components/layout/NavFlush'
 
 // Routes that render bare (own full-screen layout: landing + auth flows)
 const BARE = ['/', '/login', '/register', '/verify', '/qr', '/account', '/recover']
@@ -20,7 +21,7 @@ function isBare(path: string): boolean {
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  if (isBare(pathname)) return <>{children}</>
+  if (isBare(pathname)) return <><NavFlush />{children}</>
 
   return (
     <>
@@ -34,6 +35,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </div>
       <BottomNav />
       {/* Global UI hosts */}
+      <NavFlush />
       <GlobalComposer />
       <ConfirmHost />
     </>
