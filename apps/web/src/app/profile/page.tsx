@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
 import { Avatar } from '@/components/common/Avatar'
 import { NameEffect } from '@/components/rewards/NameEffect'
+import { pushWithFallback } from '@/lib/nav'
 
 export default function ProfilePage() {
   const router          = useRouter()
@@ -48,7 +49,7 @@ export default function ProfilePage() {
           <div className="liquid-glass rounded-full px-2 py-1.5 flex items-center gap-1">
             <button
               type="button"
-              onClick={() => router.push('/rankings')}
+              onClick={() => pushWithFallback(router, '/rankings')}
               title="Ranking"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/65 hover:text-white hover:bg-white/10 text-xs font-body transition-colors"
             >
@@ -56,7 +57,7 @@ export default function ProfilePage() {
             </button>
             <button
               type="button"
-              onClick={() => router.push('/rewards')}
+              onClick={() => pushWithFallback(router, '/rewards')}
               title="Recompensas"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/25 text-lavender hover:text-white text-xs font-body transition-colors"
             >
@@ -64,7 +65,7 @@ export default function ProfilePage() {
             </button>
             <button
               type="button"
-              onClick={() => router.push('/settings')}
+              onClick={() => pushWithFallback(router, '/settings')}
               title="Seguridad"
               className="flex items-center justify-center w-9 h-9 rounded-full text-white/65 hover:text-white hover:bg-white/10 transition-colors"
             >

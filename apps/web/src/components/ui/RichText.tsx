@@ -1,5 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { pushWithFallback } from '@/lib/nav'
 
 const TOKEN = /(@[a-zA-Z0-9_]{2,30}|#[a-zA-ZÀ-ÿ0-9_]{2,30})/g
 
@@ -16,7 +17,7 @@ export function RichText({ text, className = '' }: { text: string; className?: s
             <button
               key={i}
               type="button"
-              onClick={(e) => { e.stopPropagation(); router.push(`/search?q=${encodeURIComponent(p.slice(1))}`) }}
+              onClick={(e) => { e.stopPropagation(); pushWithFallback(router, `/search?q=${encodeURIComponent(p.slice(1))}`) }}
               className="text-lavender font-medium hover:underline"
             >
               {p}
@@ -28,7 +29,7 @@ export function RichText({ text, className = '' }: { text: string; className?: s
             <button
               key={i}
               type="button"
-              onClick={(e) => { e.stopPropagation(); router.push(`/search?q=${encodeURIComponent(p)}`) }}
+              onClick={(e) => { e.stopPropagation(); pushWithFallback(router, `/search?q=${encodeURIComponent(p)}`) }}
               className="text-primary font-medium hover:underline"
             >
               {p}
