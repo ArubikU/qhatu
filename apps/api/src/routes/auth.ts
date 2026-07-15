@@ -12,6 +12,7 @@ import { RegisterUseCase } from '../application/auth/RegisterUseCase'
 import { VerifyOtpUseCase } from '../application/auth/VerifyOtpUseCase'
 import { RefreshTokenUseCase } from '../application/auth/RefreshTokenUseCase'
 import { hashToken } from '../infrastructure/security/hashToken'
+import { hashEmail } from '../infrastructure/security/hashEmail'
 
 // Refresh token cookie name
 const RT_COOKIE = 'qhatu_rt'
@@ -32,9 +33,34 @@ const VerifyOtpExtendedSchema = VerifyOtpSchema.extend({
   gender:   z.string().optional(),
 })
 
+// Login usa esto para decidir: cuenta existe → OTP, si no → registro
+const EmailLookupSchema = z.object({
+  email: RegisterSchema.shape.email,
+})
+
 const authRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const userRepo     = new PrismaUserRepository(prisma)
   const emailService = new ResendEmailService()
+
+  // ─── POST /auth/email/status ────────────────────────────────────────────────
+  // El login-first llama esto antes de nada — su ausencia rompía todo el login.
+  app.post(
+    '/email/status',
+    {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+      schema: {
+        body: zodToJsonSchema(EmailLookupSchema),
+        response: {
+          200: zodToJsonSchema(z.object({ exists: z.boolean() })),
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = EmailLookupSchema.parse(request.body)
+      const existing = await userRepo.findByEmailHash(hashEmail(body.email))
+      return reply.send({ exists: Boolean(existing) })
+    },
+  )
 
   // ─── POST /auth/register ────────────────────────────────────────────────────
   app.post(

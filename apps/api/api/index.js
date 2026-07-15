@@ -1129,9 +1129,29 @@ var VerifyOtpExtendedSchema = VerifyOtpSchema.extend({
   ageRange: import_zod6.z.string().optional(),
   gender: import_zod6.z.string().optional()
 });
+var EmailLookupSchema = import_zod6.z.object({
+  email: RegisterSchema.shape.email
+});
 var authRoutes = async (app) => {
   const userRepo = new PrismaUserRepository(prisma);
   const emailService = new ResendEmailService();
+  app.post(
+    "/email/status",
+    {
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+      schema: {
+        body: (0, import_zod_to_json_schema.zodToJsonSchema)(EmailLookupSchema),
+        response: {
+          200: (0, import_zod_to_json_schema.zodToJsonSchema)(import_zod6.z.object({ exists: import_zod6.z.boolean() }))
+        }
+      }
+    },
+    async (request, reply) => {
+      const body = EmailLookupSchema.parse(request.body);
+      const existing = await userRepo.findByEmailHash(hashEmail(body.email));
+      return reply.send({ exists: Boolean(existing) });
+    }
+  );
   app.post(
     "/register",
     {
