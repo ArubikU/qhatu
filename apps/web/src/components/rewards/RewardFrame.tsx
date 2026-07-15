@@ -21,8 +21,10 @@ export function RewardFrame({ frameId, size, children }: RewardFrameProps) {
   const pad   = Math.round(size * 0.12)
   const total = size + pad * 2
 
-  // MYTHIC frames render a real animated WebGL plasma ring
-  const useWebGL = reward.rarity === 'MYTHIC'
+  // MYTHIC frames: WebGL DESACTIVADO — el loop rAF + shader del WebGLFrame satura
+  // el main-thread/GPU y bloquea el scheduler de React (nada commitea hasta un
+  // click). Fallback a SVG animado. (Antes ya se había reemplazado por esto.)
+  const useWebGL = false
   const colors = reward.colors?.length ? reward.colors : [RARITY_COLOR[reward.rarity]]
 
   return (
