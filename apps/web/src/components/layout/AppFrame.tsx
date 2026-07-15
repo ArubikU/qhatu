@@ -1,5 +1,7 @@
 'use client'
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { useUIStore } from '@/store/uiStore'
 import { DesktopSidebar } from '@/components/layout/DesktopSidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { RightRail } from '@/components/layout/RightRail'
@@ -20,6 +22,17 @@ function isBare(path: string): boolean {
  */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+
+  // ─── Cura del stall de navegación del App Router ───────────────────────────
+  // La URL/pathname actualiza en cada nav pero el swap del segmento corre en una
+  // transición concurrente que no commitea sola. Al cambiar el pathname disparamos
+  // un update síncrono (bumpNav → re-render de <NavFlush/>) que fuerza a React a
+  // flushear esa transición pendiente. Cubre TODA navegación (Link, router.push,
+  // back/forward) desde un único lugar.
+  useEffect(() => {
+    const t = setTimeout(() => useUIStore.getState().bumpNav(), 0)
+    return () => clearTimeout(t)
+  }, [pathname])
 
   if (isBare(pathname)) return <><NavFlush />{children}</>
 

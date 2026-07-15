@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@qhatu/shared'],
-  // StrictMode off: en Next 14 App Router hay casos de soft-nav flaky (la transición
-  // de navegación no commitea sola) que se destraban al desactivarlo. Ver lib/nav.ts.
-  reactStrictMode: false,
+  reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
