@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { api } from '@/lib/api'
+import { replaceWithFallback } from '@/lib/nav'
 import { formatDistanceToNow } from '@/lib/timeFormat'
 
 const ICONS: Record<string, React.ElementType> = {
@@ -35,7 +36,7 @@ export default function NotificationsPage() {
   const push            = usePushNotifications()
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login')
+    if (!isAuthenticated()) replaceWithFallback(router, '/login')
   }, [isAuthenticated, router])
 
   const { data, isLoading } = useQuery({

@@ -10,6 +10,7 @@ import {
 } from '@qhatu/shared'
 import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
+import { replaceWithFallback } from '@/lib/nav'
 import { RewardVisual } from '@/components/rewards/RewardVisual'
 
 const TABS: { id: RewardCategory; label: string }[] = [
@@ -47,7 +48,7 @@ export default function RewardsPage() {
   const [tab, setTab]   = useState<RewardCategory>('FRAME')
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login')
+    if (!isAuthenticated()) replaceWithFallback(router, '/login')
   }, [isAuthenticated, router])
 
   const { data, isLoading } = useQuery({

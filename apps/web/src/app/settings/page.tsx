@@ -5,13 +5,14 @@ import { ChevronLeft, Mail, Trash2, Loader2, ShieldCheck } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '@/store/authStore'
 import { api, ApiError } from '@/lib/api'
+import { replaceWithFallback } from '@/lib/nav'
 
 export default function SettingsPage() {
   const router          = useRouter()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const accessToken     = useAuthStore((s) => s.accessToken)
 
-  useEffect(() => { if (!isAuthenticated()) router.replace('/login') }, [isAuthenticated, router])
+  useEffect(() => { if (!isAuthenticated()) replaceWithFallback(router, '/login') }, [isAuthenticated, router])
 
   // Email change
   const [newEmail, setNewEmail] = useState('')

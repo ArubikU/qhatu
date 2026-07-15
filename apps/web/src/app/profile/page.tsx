@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
 import { Avatar } from '@/components/common/Avatar'
 import { NameEffect } from '@/components/rewards/NameEffect'
-import { pushWithFallback } from '@/lib/nav'
+import { pushWithFallback, replaceWithFallback } from '@/lib/nav'
 
 export default function ProfilePage() {
   const router          = useRouter()
@@ -18,7 +18,7 @@ export default function ProfilePage() {
   const [avatarOpen, setAvatarOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login')
+    if (!isAuthenticated()) replaceWithFallback(router, '/login')
   }, [isAuthenticated, router])
 
   const { data: profile, isLoading } = useQuery({
@@ -33,7 +33,7 @@ export default function ProfilePage() {
       await api.auth.logout(accessToken).catch(() => null)
     }
     clearAuth()
-    router.replace('/login')
+    replaceWithFallback(router, '/login')
   }
 
   const displayUser = profile ?? (storeUser ? { ...storeUser, streakCount: 0, totalLikesEarned: 0, universityDomain: '', ageRange: null, id: '', createdAt: '' } : null)

@@ -23,3 +23,16 @@ export function pushWithFallback(router: AppRouter, href: string): void {
     if ((window.location.pathname + window.location.search) === current) window.location.assign(href)
   }, 1500)
 }
+
+/** Igual que pushWithFallback pero con router.replace (para redirects/logout). */
+export function replaceWithFallback(router: AppRouter, href: string): void {
+  if (typeof window === 'undefined') return
+  const current = window.location.pathname + window.location.search
+  if (current === href) return
+
+  try { router.replace(href) } catch { window.location.replace(href); return }
+
+  window.setTimeout(() => {
+    if ((window.location.pathname + window.location.search) === current) window.location.replace(href)
+  }, 1500)
+}

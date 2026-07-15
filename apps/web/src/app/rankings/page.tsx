@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getReward } from '@qhatu/shared'
 import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
+import { replaceWithFallback } from '@/lib/nav'
 import { Avatar } from '@/components/common/Avatar'
 
 type RType = 'LIKES_RECEIVED' | 'POSTS_PUBLISHED' | 'COMMENTS_MADE'
@@ -24,7 +25,7 @@ export default function RankingsPage() {
   const [type, setType] = useState<RType>('LIKES_RECEIVED')
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login')
+    if (!isAuthenticated()) replaceWithFallback(router, '/login')
   }, [isAuthenticated, router])
 
   const { data, isFetching } = useQuery({
