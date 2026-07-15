@@ -1,102 +1,24 @@
-/* Qhatu service worker — push notifications + offline app shell (S6) */
+/* Qhatu service worker — DESACTIVADO.
+ *
+ * El caching de navegaciones/RSC interfería con el router de Next (App Router):
+ * las navegaciones quedaban atascadas hasta forzar un re-render. No vale la pena
+ * mantener offline a costa de romper la navegación, así que este worker se
+ * auto-desregistra, limpia todas las caches y recarga los clientes controlados.
+ * Cualquier cliente con un SW viejo (v2/v3) recibirá esto y quedará limpio.
+ */
+self.addEventListener('install', () => self.skipWaiting())
 
-const CACHE = 'qhatu-v3'
-const APP_SHELL = ['/', '/feed', '/login', '/offline', '/manifest.json', '/isotipo.png', '/logotipo.png']
-
-// ─── Install: pre-cache app shell ──────────────────────────────────────────────
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(APP_SHELL)).then(() => self.skipWaiting()),
-  )
-})
-
-// ─── Activate: drop old caches ─────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
-  )
+  event.waitUntil((async () => {
+    try {
+      const keys = await caches.keys()
+      await Promise.all(keys.map((k) => caches.delete(k)))
+    } catch { /* noop */ }
+    try { await self.registration.unregister() } catch { /* noop */ }
+    // Recarga los clientes para que corran sin SW (navegación normal de Next).
+    const clients = await self.clients.matchAll({ type: 'window' })
+    for (const c of clients) { try { c.navigate(c.url) } catch { /* noop */ } }
+  })())
 })
 
-// ─── Fetch strategy ────────────────────────────────────────────────────────────
-//  - API (/api/*): network-only (never cache auth/feed data)
-//  - Navigations: network-first, fall back to cache, then /offline
-//  - Static assets: stale-while-revalidate
-self.addEventListener('fetch', (event) => {
-  const { request } = event
-  if (request.method !== 'GET') return
-
-  const url = new URL(request.url)
-  if (url.pathname.startsWith('/api/')) return  // let the network handle it
-
-  // ─── NUNCA interceptar payloads de datos de Next (RSC / flight / _next/data) ───
-  // Servir HTML cacheado a un fetch RSC rompe la navegación cliente en silencio.
-  if (
-    url.searchParams.has('_rsc') ||
-    request.headers.get('RSC') === '1' ||
-    request.headers.get('Next-Router-Prefetch') === '1' ||
-    url.pathname.startsWith('/_next/data/')
-  ) {
-    return  // red directo, sin cache
-  }
-
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          const copy = res.clone()
-          caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {})
-          return res
-        })
-        .catch(() => caches.match(request).then((c) => c || caches.match('/offline'))),
-    )
-    return
-  }
-
-  // Static assets
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request)
-          .then((res) => {
-            const copy = res.clone()
-            caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {})
-            return res
-          })
-          .catch(() => cached)
-        return cached || network
-      }),
-    )
-  }
-})
-
-// ─── Push notifications ────────────────────────────────────────────────────────
-self.addEventListener('push', (event) => {
-  if (!event.data) return
-  let data = {}
-  try { data = event.data.json() } catch { data = { title: 'Qhatu', body: event.data.text() } }
-
-  const title = data.title || 'Qhatu'
-  const options = {
-    body:  data.body || '',
-    icon:  '/isotipo.png',
-    badge: '/isotipo.png',
-    tag:   data.tag || 'qhatu',
-    data:  { url: data.url || '/notifications' },
-  }
-  event.waitUntil(self.registration.showNotification(title, options))
-})
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-  const url = (event.notification.data && event.notification.data.url) || '/notifications'
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ('focus' in client) { client.navigate(url); return client.focus() }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(url)
-    }),
-  )
-})
+// Sin handler de fetch → el SW NO intercepta ninguna request.

@@ -17,21 +17,17 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      // Si ya había un SW controlando (versión vieja), al ser reemplazado por el
-      // nuevo forzamos un reload una vez — así el SW arreglado toma control sin
-      // que el usuario tenga que des-registrar a mano.
-      const hadController = !!navigator.serviceWorker.controller
-      let reloaded = false
-      const onCtrlChange = () => {
-        if (reloaded || !hadController) return
-        reloaded = true
-        window.location.reload()
-      }
-      navigator.serviceWorker.addEventListener('controllerchange', onCtrlChange)
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => reg.update().catch(() => {}))
+      // SW desactivado: el caching de RSC rompía la navegación de Next. NO registramos
+      // (evita loop de reload con el kill-worker). Solo desregistramos cualquier SW
+      // viejo que siga controlando + borramos caches. Los clientes con SW viejo además
+      // reciben el nuevo /sw.js (kill-worker) por auto-update del browser, que se
+      // auto-desregistra una vez.
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
         .catch(() => {})
+      if (typeof caches !== 'undefined') {
+        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {})
+      }
     }
 
     const onPrompt = (e: Event) => {
