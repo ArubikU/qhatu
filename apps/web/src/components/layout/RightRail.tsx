@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { Avatar } from '@/components/common/Avatar'
 import { FollowButton } from '@/components/social/FollowButton'
 import { useAuthStore } from '@/store/authStore'
+import { pushWithFallback } from '@/lib/nav'
 
 /** Twitter-style right rail (lg+): search, trending hashtags, who-to-follow. */
 export function RightRail() {
@@ -23,7 +24,7 @@ export function RightRail() {
       {/* Search */}
       <button
         type="button"
-        onClick={() => router.push('/search')}
+        onClick={() => pushWithFallback(router, '/search')}
         className="flex items-center gap-2 w-full bg-white/5 hover:bg-white/8 border border-white/10 rounded-full px-4 py-2.5 text-sm text-white/40 transition-colors"
       >
         <Search size={16} /> Buscar en Qhatu
@@ -41,7 +42,7 @@ export function RightRail() {
             <button
               key={h.tag}
               type="button"
-              onClick={() => router.push(`/search?q=${encodeURIComponent('#' + h.tag)}`)}
+              onClick={() => pushWithFallback(router, `/search?q=${encodeURIComponent('#' + h.tag)}`)}
               className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors flex items-center gap-2.5"
             >
               <span className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">

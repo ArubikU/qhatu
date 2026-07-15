@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { api } from '@/lib/api'
+import { pushWithFallback } from '@/lib/nav'
 
 const ITEMS = [
   { href: '/feed',          icon: Home,   label: 'Inicio' },
@@ -41,7 +42,7 @@ export function BottomNav() {
       <button
         key={href}
         type="button"
-        onClick={() => router.push(href)}
+        onClick={() => pushWithFallback(router, href)}
         className="relative flex items-center justify-center w-12 h-12 rounded-2xl transition-colors"
       >
         <span className="relative">
@@ -65,7 +66,7 @@ export function BottomNav() {
         {/* Center FAB — Crear */}
         <button
           type="button"
-          onClick={() => { if (accessToken) openCompose(); else router.push('/login') }}
+          onClick={() => { if (accessToken) openCompose(); else pushWithFallback(router, '/login') }}
           className="w-14 h-14 -mt-6 rounded-full bg-gradient-to-br from-[#7B3FF2] to-[#4B17B6] flex items-center justify-center shadow-[0_0_25px_rgba(123,63,242,0.6)] border-2 border-[#0F0D17] active:scale-95 transition-transform"
         >
           <Plus size={26} className="text-white" />

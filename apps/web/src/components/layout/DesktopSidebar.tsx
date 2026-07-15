@@ -1,11 +1,11 @@
 'use client'
-import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Home, Search, Bell, User, Sparkles, Trophy, PenSquare } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { api } from '@/lib/api'
+import { pushWithFallback } from '@/lib/nav'
 
 const ITEMS = [
   { href: '/feed',          icon: Home,    label: 'Inicio' },
@@ -33,12 +33,12 @@ export function DesktopSidebar() {
   return (
     <aside className="hidden md:flex flex-col sticky top-0 h-screen border-r border-white/5 px-2 lg:px-4 py-4 md:w-20 lg:w-64 flex-shrink-0">
       {/* Logo */}
-      <Link href="/feed" className="flex items-center gap-1.5 px-1 mb-6 h-12 justify-center lg:justify-start">
+      <button type="button" onClick={() => pushWithFallback(router, '/feed')} className="flex items-center gap-1.5 px-1 mb-6 h-12 justify-center lg:justify-start">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/isotipo.png" alt="Qhatu" className="w-12 h-12 object-contain" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logotipo.png" alt="Qhatu" className="h-9 w-auto hidden lg:block -ml-1" />
-      </Link>
+      </button>
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
@@ -49,7 +49,7 @@ export function DesktopSidebar() {
             <button
               key={href}
               type="button"
-              onClick={() => { if (pathname !== href) router.push(href) }}
+              onClick={() => { if (pathname !== href) pushWithFallback(router, href) }}
               title={label}
               className={[
                 'relative flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors font-body w-full text-left',
@@ -83,12 +83,12 @@ export function DesktopSidebar() {
 
       {/* User mini */}
       {user && (
-        <Link href="/profile" className="flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-white/5 transition-colors justify-center lg:justify-start">
+        <button type="button" onClick={() => pushWithFallback(router, '/profile')} className="flex items-center gap-2 rounded-2xl px-2 py-2 hover:bg-white/5 transition-colors justify-center lg:justify-start w-full">
           <div className="w-9 h-9 rounded-full bg-primary/30 flex items-center justify-center text-white font-bold flex-shrink-0">
             {(user.nickname?.[0] ?? 'Q').toUpperCase()}
           </div>
           <span className="hidden lg:block text-sm text-white/70 truncate font-body">{user.nickname}</span>
-        </Link>
+        </button>
       )}
     </aside>
   )

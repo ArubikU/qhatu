@@ -6,6 +6,7 @@ import { PenSquare, Loader2, RefreshCw, Search, ArrowUp } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { useFeed, type FeedTab } from '@/hooks/useFeed'
+import { pushWithFallback } from '@/lib/nav'
 import { useSSEFeed } from '@/hooks/useSSEFeed'
 import { PostCard } from '@/components/posts/PostCard'
 
@@ -41,7 +42,7 @@ export default function FeedPage() {
 
   const { newPostsAvailable, resetNewPosts } = useSSEFeed()
 
-  const handleCompose = () => { if (isAuth) openCompose(); else router.push('/login') }
+  const handleCompose = () => { if (isAuth) openCompose(); else pushWithFallback(router, '/login') }
 
   const {
     data,
@@ -92,7 +93,7 @@ export default function FeedPage() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => router.push('/search')}
+                onClick={() => pushWithFallback(router, '/search')}
                 className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
               >
                 <Search size={17} />
@@ -152,7 +153,7 @@ export default function FeedPage() {
         {!isAuth && (
           <button
             type="button"
-            onClick={() => router.push('/login')}
+            onClick={() => pushWithFallback(router, '/login')}
             className="mx-4 mt-3 w-[calc(100%-2rem)] flex items-center justify-center gap-2 liquid-glass rounded-2xl py-3 text-sm font-body text-white/80 hover:text-white transition-colors"
           >
             <span className="text-lavender font-semibold">Inicia sesión</span> para reaccionar, comentar y publicar
