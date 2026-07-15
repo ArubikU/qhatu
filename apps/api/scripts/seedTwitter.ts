@@ -25,6 +25,13 @@ const UNI_DOMAIN: Record<string, string> = {
   ucsur: 'cientifica.edu.pe', otras: 'lima.edu.pe',
 }
 
+// Los JSON no traen fecha original del tweet → repartir sobre ~14 días (sesgo reciente)
+// para que el feed no salga todo "hace 1h".
+function seedDate(): Date {
+  const ms = (Math.random() ** 2) * 14 * 24 * 60 * 60 * 1000
+  return new Date(Date.now() - ms)
+}
+
 function sanitizeNick(handle: string): string {
   const base = handle.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)
   return base.length >= 2 ? base : `tw${base}`
@@ -96,6 +103,8 @@ async function run() {
         authorId, content, type: 'TEXT', isIdentityRevealed: true, expiresAt: null, hashtagIds,
         media: media.length ? media : undefined,
       })
+      const when = seedDate()
+      await prisma.post.update({ where: { id: created.id }, data: { createdAt: when } })
       post = { id: created.id }
       postsCreated++
     }
