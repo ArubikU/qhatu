@@ -46,12 +46,13 @@ export function DesktopSidebar() {
           const active = pathname === href || pathname.startsWith(href + '/')
           const badge  = href === '/notifications' && unreadCount > 0
           return (
-            <Link
+            <button
               key={href}
-              href={href}
+              type="button"
+              onClick={() => { if (pathname !== href) router.push(href) }}
               title={label}
               className={[
-                'relative flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors font-body',
+                'relative flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors font-body w-full text-left',
                 'justify-center lg:justify-start',
                 active ? 'bg-primary/15 text-white' : 'text-white/55 hover:bg-white/5 hover:text-white',
               ].join(' ')}
@@ -65,7 +66,7 @@ export function DesktopSidebar() {
                 )}
               </span>
               <span className="hidden lg:block text-sm font-medium">{label}</span>
-            </Link>
+            </button>
           )
         })}
       </nav>

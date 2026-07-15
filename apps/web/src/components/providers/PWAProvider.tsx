@@ -17,7 +17,21 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      // Si ya había un SW controlando (versión vieja), al ser reemplazado por el
+      // nuevo forzamos un reload una vez — así el SW arreglado toma control sin
+      // que el usuario tenga que des-registrar a mano.
+      const hadController = !!navigator.serviceWorker.controller
+      let reloaded = false
+      const onCtrlChange = () => {
+        if (reloaded || !hadController) return
+        reloaded = true
+        window.location.reload()
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', onCtrlChange)
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {})
     }
 
     const onPrompt = (e: Event) => {
