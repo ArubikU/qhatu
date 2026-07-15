@@ -7,7 +7,7 @@ import { GlobalComposer } from '@/components/layout/GlobalComposer'
 import { ConfirmHost } from '@/components/ui/ConfirmHost'
 
 // Routes that render bare (own full-screen layout: landing + auth flows)
-const BARE = ['/', '/login', '/register', '/verify', '/qr', '/account']
+const BARE = ['/', '/login', '/register', '/verify', '/qr', '/account', '/recover']
 
 function isBare(path: string): boolean {
   return BARE.some((p) => (p === '/' ? path === '/' : path.startsWith(p)))
