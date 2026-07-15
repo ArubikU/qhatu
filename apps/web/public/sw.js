@@ -1,6 +1,6 @@
 /* Qhatu service worker — push notifications + offline app shell (S6) */
 
-const CACHE = 'qhatu-v2'
+const CACHE = 'qhatu-v3'
 const APP_SHELL = ['/', '/feed', '/login', '/offline', '/manifest.json', '/isotipo.png', '/logotipo.png']
 
 // ─── Install: pre-cache app shell ──────────────────────────────────────────────
@@ -29,6 +29,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.pathname.startsWith('/api/')) return  // let the network handle it
+
+  // ─── NUNCA interceptar payloads de datos de Next (RSC / flight / _next/data) ───
+  // Servir HTML cacheado a un fetch RSC rompe la navegación cliente en silencio.
+  if (
+    url.searchParams.has('_rsc') ||
+    request.headers.get('RSC') === '1' ||
+    request.headers.get('Next-Router-Prefetch') === '1' ||
+    url.pathname.startsWith('/_next/data/')
+  ) {
+    return  // red directo, sin cache
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(
