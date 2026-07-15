@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { MessageCircle, Trash2, Clock, Eye, Share2, Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Avatar } from '@/components/common/Avatar'
@@ -11,7 +11,6 @@ import { useToggleReaction } from '@/hooks/useFeed'
 import { useAuthStore } from '@/store/authStore'
 import { useDeny } from '@/components/ui/ConfirmHost'
 import { RichText } from '@/components/ui/RichText'
-import { TitleChip } from '@/components/rewards/TitleChip'
 import { api } from '@/lib/api'
 import type { PostItem, ReactionType } from '@/lib/api'
 import { formatDistanceToNow } from '@/lib/timeFormat'
@@ -22,7 +21,7 @@ interface PostCardProps {
   defaultCommentsOpen?: boolean
 }
 
-export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
+function PostCardBase({ post, defaultCommentsOpen = false }: PostCardProps) {
   const [showComments, setShowComments]   = useState(defaultCommentsOpen)
   const [shared, setShared]               = useState(false)
   const { mutate: toggleReaction, isPending } = useToggleReaction(post.id)
@@ -71,7 +70,6 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
       animate={{ opacity: 1, y: 0 }}
       className="glass rounded-2xl p-4 border border-white/5 hover:border-white/10 transition-colors"
     >
-      {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <Avatar seed={post.authorAvatarSeed} size={38} frameId={post.authorFrame} imageUrl={post.authorAvatarUrl} />
         <div className="flex-1 min-w-0">
@@ -80,7 +78,9 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
               {post.authorNickname}
             </NameEffect>
             {post.authorTitle && getReward(post.authorTitle) && (
-              <TitleChip reward={getReward(post.authorTitle)!} size="sm" />
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-lavender font-body">
+                {getReward(post.authorTitle)!.name}
+              </span>
             )}
             {post.authorFaculty && (
               <span className="text-xs text-white/40 font-body">{post.authorFaculty}</span>
@@ -101,7 +101,6 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
           <span className="text-xs text-white/30 font-body">{formatDistanceToNow(post.createdAt)}</span>
         </div>
 
-        {/* Delete — only on own posts (isMine from server; authorId never exposed) */}
         {post.isMine && (
           <button
             type="button"
@@ -114,21 +113,18 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
         )}
       </div>
 
-      {/* Content */}
       {post.content && (
         <p className="text-white/90 text-sm leading-relaxed font-body mb-3 whitespace-pre-wrap break-words">
           <RichText text={post.content} />
         </p>
       )}
 
-      {/* Media gallery */}
       {post.media.length > 0 && (
         <div className={`mb-3 grid gap-1 rounded-xl overflow-hidden ${gridCols(post.media.length)}`}>
           {post.media.map((m, i) => (
             <div
               key={i}
               className={`relative bg-black/30 overflow-hidden ${
-                // First item spans full width when odd count > 1
                 post.media.length === 3 && i === 0 ? 'col-span-2' : ''
               } ${post.media.length === 1 ? '' : 'aspect-square'}`}
             >
@@ -153,7 +149,6 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
         </div>
       )}
 
-      {/* Poll */}
       {post.poll && (
         <div className="mb-3 bg-white/5 rounded-xl p-3 border border-white/10">
           <p className="text-xs font-semibold text-white/70 mb-2 font-body">{post.poll.question}</p>
@@ -183,9 +178,6 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
         </div>
       )}
 
-      {/* Hashtags already render inline + styled inside the content (RichText) */}
-
-      {/* Actions */}
       <div className="flex items-center gap-3 pt-2 border-t border-white/5">
         <ReactionBar
           likesCount={post.likesCount}
@@ -218,7 +210,6 @@ export function PostCard({ post, defaultCommentsOpen = false }: PostCardProps) {
         </button>
       </div>
 
-      {/* Comments */}
       <CommentSection postId={post.id} open={showComments} />
     </motion.article>
   )
@@ -230,5 +221,7 @@ function hoursLeft(expiresAt: string): number {
 
 function gridCols(n: number): string {
   if (n === 1) return 'grid-cols-1'
-  return 'grid-cols-2'  // 2, 3 (first spans), 4, 5, 6 all use 2-col masonry-ish
+  return 'grid-cols-2'
 }
+
+export const PostCard = memo(PostCardBase)

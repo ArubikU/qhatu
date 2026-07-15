@@ -5,7 +5,7 @@ import { prisma } from '../infrastructure/db/prisma'
 import { PrismaUserRepository } from '../infrastructure/repositories/PrismaUserRepository'
 import { PrismaSocialRepository } from '../infrastructure/repositories/PrismaSocialRepository'
 import { FollowUseCase } from '../application/social/FollowUseCase'
-import { streamProducer } from '../app'
+import { streamProducer } from '../streamProducer'
 
 interface JwtPayload { sub: string; nickname: string }
 

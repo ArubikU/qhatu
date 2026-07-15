@@ -4,7 +4,6 @@ import { Avatar } from '@/components/common/Avatar'
 import { NameEffect } from '@/components/rewards/NameEffect'
 import { RewardBadge } from '@/components/rewards/RewardBadge'
 import { StreakBadge } from '@/components/rewards/StreakBadge'
-import { TitleChip } from '@/components/rewards/TitleChip'
 
 /** Renders a representative preview of any reward (for the gallery tiles). */
 export function RewardVisual({ reward, size = 56, locked = false, prestige = 0 }: { reward: Reward; size?: number; locked?: boolean; prestige?: number }) {
@@ -31,7 +30,18 @@ export function RewardVisual({ reward, size = 56, locked = false, prestige = 0 }
       return <RewardBadge reward={reward} size={size} locked={locked} />
 
     case 'TITLE':
-      return <TitleChip reward={reward} locked={locked} />
+      return (
+        <span
+          className="text-xs font-semibold px-3 py-1.5 rounded-full font-body"
+          style={{
+            color: locked ? '#6B6578' : (reward.colors?.[0] ?? '#C8B6FF'),
+            background: locked ? 'rgba(255,255,255,0.04)' : `${reward.colors?.[0] ?? '#7B3FF2'}1a`,
+            border: `1px solid ${locked ? '#2A2438' : (reward.colors?.[0] ?? '#7B3FF2')}55`,
+          }}
+        >
+          {reward.name}
+        </span>
+      )
 
     default:
       return null

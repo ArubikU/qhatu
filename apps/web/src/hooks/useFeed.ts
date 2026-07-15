@@ -20,27 +20,30 @@ export function useFeed(tab: FeedTab = 'recent') {
     },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialPageParam: undefined,
-    // Always enabled — public when logged out
     enabled: true,
   })
 }
 
-export function useToggleReaction(postId: string) {
+export function useToggleReaction(postId: string, tab: FeedTab = 'recent') {
   const qc          = useQueryClient()
   const accessToken = useAuthStore((s) => s.accessToken)
+  const isPublic    = !accessToken
+
+  // ─── Clave exacta del tab activo — evita cancelar y restaurar otras tabs ───
+  const feedKey = ['feed', tab, isPublic ? 'public' : 'auth']
 
   return useMutation({
     mutationFn: (type: ReactionType) =>
       api.posts.react(postId, type, accessToken ?? ''),
 
-    // Optimistic update across all feed tabs
+    // ─── Optimistic update solo en el tab activo, no en todos ───
     onMutate: async (type) => {
-      await qc.cancelQueries({ queryKey: ['feed'] })
+      await qc.cancelQueries({ queryKey: feedKey })
 
-      const snapshot = qc.getQueriesData<{ pages: FeedPage[] }>({ queryKey: ['feed'] })
+      const snapshot = qc.getQueryData<{ pages: FeedPage[] }>(feedKey)
 
-      qc.setQueriesData<{ pages: FeedPage[] }>(
-        { queryKey: ['feed'] },
+      qc.setQueryData<{ pages: FeedPage[] }>(
+        feedKey,
         (old) => {
           if (!old) return old
           return {
@@ -58,17 +61,16 @@ export function useToggleReaction(postId: string) {
       return { snapshot }
     },
 
+    // ─── Rollback solo del tab activo si el servidor falla ───
     onError: (_err, _type, ctx) => {
-      // Roll back
       if (ctx?.snapshot) {
-        for (const [key, data] of ctx.snapshot) {
-          qc.setQueryData(key, data)
-        }
+        qc.setQueryData(feedKey, ctx.snapshot)
       }
     },
 
+    // ─── Invalida solo el tab activo, no todas las tabs ───
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['feed'] })
+      qc.invalidateQueries({ queryKey: feedKey })
     },
   })
 }

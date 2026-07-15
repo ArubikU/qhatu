@@ -38,6 +38,7 @@ export interface PostWithMeta extends Post {
   authorNameEffect: string | null  // equipped NAME_EFFECT id (only when identity revealed)
   authorTitle: string | null       // equipped TITLE id (only when identity revealed)
   isMine: boolean                  // viewer is the author (enables delete) — authorId never sent to client
+  authorStreakCount: number        // racha de días activos del autor para el algoritmo de feed
   hashtags: string[]
   media: MediaItem[]
   myReaction: ReactionType | null

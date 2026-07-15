@@ -15,8 +15,10 @@ const W = {
   tea:      1.3,
   ded:      1.2,
   comments: 2.0,
-  shares:   2.5,  // reserved for future
-  polls:    0.8,  // poll vote engagement
+// shares no está implementado aún — sharesCount siempre llega como 0 desde el servidor
+  shares:   2.5,
+// polls multiplica pollVotesCount cuando el post es una encuesta
+  polls:    0.8,
   reports: -5.0,
 } as const
 
@@ -29,6 +31,7 @@ export interface PostMetrics {
   dedCount:      number
   commentsCount: number
   sharesCount:   number  // 0 for now
+  pollVotesCount?: number  // votos de encuesta, opcional
   reportsCount:  number
   isPoll:        boolean
   isIdentityRevealed: boolean
@@ -82,8 +85,8 @@ export function computeBaseScore(metrics: PostMetrics): number {
     metrics.teaCount      * W.tea      +
     metrics.dedCount      * W.ded      +
     metrics.commentsCount * W.comments +
-    metrics.sharesCount   * W.shares   +
-    (metrics.isPoll ? metrics.commentsCount * W.polls : 0) +
+    // ─── polls multiplica pollVotesCount, no commentsCount — evita doble conteo ───
+    (metrics.isPoll ? (metrics.pollVotesCount ?? 0) * W.polls : 0) +
     metrics.reportsCount  * W.reports
 
   const baseScore = engagement / Math.log2(hoursAge + 2)
@@ -212,7 +215,8 @@ export function applyHeuristics<T extends {
   let fi = 0
 
   while (merged.length < limit) {
-    const needsFresh = freshUsed < 3 && fi < freshPosts.length && merged.length >= 6
+    // ─── Activa frescura desde el inicio si hay pocos candidatos ───
+    const needsFresh = freshUsed < 3 && fi < freshPosts.length && merged.length >= Math.min(6, ranked.length - 1)
     if (needsFresh) {
       merged.push(freshPosts[fi++]!)
       freshUsed++

@@ -153,4 +153,16 @@ export class PrismaUserRepository implements IUserRepository {
       where: { userId, expiresAt: { lt: new Date() } },
     })
   }
+
+  // ─── Actualiza facultad, edad y género del usuario ───
+  async updateProfile(userId: string, data: { faculty?: string; ageRange?: string; gender?: string }): Promise<void> {
+    await this.db.user.update({
+      where: { id: userId },
+      data: {
+        faculty:  data.faculty  ?? undefined,
+        ageRange: data.ageRange ?? undefined,
+        gender:   data.gender   ?? undefined,
+      },
+    })
+  }
 }

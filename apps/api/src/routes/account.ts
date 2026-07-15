@@ -20,7 +20,7 @@ const accountRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const userRepo = new PrismaUserRepository(prisma)
   const email    = new ResendEmailService()
 
-  // ─── POST /auth/email/change-request — send OTP to the NEW email ──────────────
+  // ─── POST /auth/email/change-request ──────────────────────────────────────────
   app.post(
     '/email/change-request',
     {
@@ -75,7 +75,7 @@ const accountRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     },
   )
 
-  // ─── POST /auth/account/delete-request — re-enter email, get confirm link ─────
+  // ─── POST /auth/account/delete-request ────────────────────────────────────────
   app.post(
     '/account/delete-request',
     {
@@ -88,12 +88,10 @@ const accountRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       const body = DeleteRequest.parse(request.body)
 
       const me = await userRepo.findById(user.sub)
-      // Verify the provided email actually belongs to this account
       if (!me || hashEmail(body.email) !== me.emailHash) {
         throw app.httpErrors.badRequest('El correo no coincide con tu cuenta.')
       }
 
-      // Short-lived signed token proves intent at confirm time
       const token = app.jwt.sign({ sub: user.sub, purpose: 'delete' }, { expiresIn: '30m' })
       const base  = process.env.FRONTEND_URL ?? 'https://qhatu.app'
       email.send(body.email, accountDeletionEmail(`${base}/account/delete?t=${token}`)).catch(() => null)
@@ -102,7 +100,7 @@ const accountRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     },
   )
 
-  // ─── POST /auth/account/delete-confirm — finalize via token (no auth) ─────────
+  // ─── POST /auth/account/delete-confirm ────────────────────────────────────────
   app.post(
     '/account/delete-confirm',
     {
@@ -122,6 +120,28 @@ const accountRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       await userRepo.softDeleteUser(payload.sub)
       reply.clearCookie('qhatu_rt', { path: '/api/auth' })
       return reply.send({ message: 'Cuenta eliminada.' })
+    },
+  )
+
+  // ─── PATCH /auth/profile — guarda facultad, edad y género del onboarding ──────
+  const ProfileSchema = z.object({
+    faculty:  z.string().optional(),
+    ageRange: z.string().optional(),
+    gender:   z.string().optional(),
+  })
+
+  app.patch(
+    '/profile',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      schema: { body: zodToJsonSchema(ProfileSchema) },
+    },
+    async (request, reply) => {
+      await request.jwtVerify()
+      const user = request.user as JwtPayload
+      const body = ProfileSchema.parse(request.body)
+      await userRepo.updateProfile(user.sub, body)
+      return reply.send({ message: 'Perfil actualizado.' })
     },
   )
 }

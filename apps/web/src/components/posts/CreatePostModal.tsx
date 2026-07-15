@@ -11,6 +11,8 @@ import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
 import { MEDIA_LIMITS, mimeToKind, canAddMedia, MAX_POST_CHARS } from '@qhatu/shared'
 import { Avatar } from '@/components/common/Avatar'
+import { PollComposer } from './PollComposer'
+
 
 const ACCEPT = [
   ...MEDIA_LIMITS.image.mimeTypes,
@@ -57,19 +59,18 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     !upload.uploading
 
   useEffect(() => {
-    if (open) {
-      embedder.warmup()  // start loading the embedding model in the background
-    } else {
-      // Reset on close
-      setContent('')
-      setType('TEXT')
-      setIsIdentityRevealed(false)
-      setPollQuestion('')
-      setPollOptions(['', ''])
-      setMedia([])
-      upload.reset()
-    }
-  }, [open])
+  if (open) {
+    embedder.warmup()
+  } else {
+    setContent('')
+    setType('TEXT')
+    setIsIdentityRevealed(false)
+    setPollQuestion('')
+    setPollOptions(['', ''])
+    setMedia([])
+    upload.reset()
+  }
+}, [open, embedder, upload])
 
   const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -209,42 +210,21 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
               )}
 
               {/* Poll fields */}
-              {type === 'POLL' && (
-                <div className="bg-white/5 rounded-xl p-3 mb-3 border border-white/10">
-                  <input
-                    value={pollQuestion}
-                    onChange={(e) => setPollQuestion(e.target.value)}
-                    placeholder="Pregunta de la encuesta"
-                    maxLength={200}
-                    className="w-full bg-transparent text-sm text-white placeholder-white/40 font-body focus:outline-none mb-2 border-b border-white/10 pb-2"
-                  />
-                  {pollOptions.map((opt, i) => (
-                    <div key={i} className="flex items-center gap-2 mb-1.5">
-                      <input
-                        value={opt}
-                        onChange={(e) => {
-                          const next = [...pollOptions]
-                          next[i] = e.target.value
-                          setPollOptions(next)
-                        }}
-                        placeholder={`Opción ${i + 1}`}
-                        maxLength={100}
-                        className="flex-1 bg-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 font-body focus:outline-none border border-white/10"
-                      />
-                      {pollOptions.length > 2 && (
-                        <button type="button" onClick={() => removePollOption(i)} className="text-white/30 hover:text-red-400 transition-colors">
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {pollOptions.length < 4 && (
-                    <button type="button" onClick={addPollOption} className="flex items-center gap-1 text-xs text-lavender hover:text-white transition-colors mt-1 font-body">
-                      <Plus size={12} /> Agregar opción
-                    </button>
-                  )}
-                </div>
-              )}
+                {type === 'POLL' && (
+                // ─── C2: PollComposer extraído para mantener CreatePostModal más limpio ───
+                  <PollComposer
+                    question={pollQuestion}
+                    options={pollOptions}
+                    onQuestionChange={setPollQuestion}
+                    onOptionChange={(i, val) => {
+                    const next = [...pollOptions]
+                next[i] = val
+              setPollOptions(next)
+    }}
+    onAddOption={() => setPollOptions((o) => [...o, ''])}
+    onRemoveOption={(i) => setPollOptions((o) => o.filter((_, idx) => idx !== i))}
+  />
+)}
 
               {/* Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-white/10">

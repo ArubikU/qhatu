@@ -5,8 +5,6 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { RightRail } from '@/components/layout/RightRail'
 import { GlobalComposer } from '@/components/layout/GlobalComposer'
 import { ConfirmHost } from '@/components/ui/ConfirmHost'
-import { SvgFilters } from '@/components/rewards/SvgFilters'
-import { HoloField } from '@/components/rewards/HoloField'
 
 // Routes that render bare (own full-screen layout: landing + auth flows)
 const BARE = ['/', '/login', '/register', '/verify', '/qr', '/account']
@@ -38,8 +36,6 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       {/* Global UI hosts */}
       <GlobalComposer />
       <ConfirmHost />
-      <SvgFilters />
-      <HoloField />
     </>
   )
 }

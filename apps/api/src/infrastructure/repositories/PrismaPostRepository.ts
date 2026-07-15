@@ -44,7 +44,7 @@ const REACTION_FIELD: Record<ReactionType, keyof Prisma.PostUpdateInput> = {
 // Shared include shape for feed queries (author, hashtags, media, viewer reaction, poll)
 function FEED_INCLUDE(viewerId: string) {
   return {
-    author:    { select: { nickname: true, avatarSeed: true, avatarUrl: true, faculty: true, equippedFrame: true, equippedNameEffect: true, equippedTitle: true } },
+   author:    { select: { nickname: true, avatarSeed: true, avatarUrl: true, faculty: true, equippedFrame: true, equippedNameEffect: true, equippedTitle: true, streakCount: true } },
     hashtags:  { include: { hashtag: { select: { tag: true } } } },
     media:     { orderBy: { order: 'asc' as const }, select: { key: true, type: true } },
     reactions: { where: { userId: viewerId }, select: { type: true } },
@@ -134,19 +134,17 @@ export class PrismaPostRepository implements IPostRepository {
     }
 
     if (tab === 'following') {
-      // Get nicknames the viewer follows
-      const follows = await this.db.userFollow.findMany({
-        where: { followerId: viewerId, targetNickname: { not: null } },
-        select: { targetNickname: true },
-      })
-      const nicknames = follows.map((f) => f.targetNickname!)
-      // Get user IDs for those nicknames
-      const authors = await this.db.user.findMany({
-        where: { nickname: { in: nicknames } },
-        select: { id: true },
-      })
-      where = { ...where, authorId: { in: authors.map((a) => a.id) } }
+  // ─── Subquery directa: evita 3 queries secuenciales — ahora son 2 ───
+    const follows = await this.db.userFollow.findMany({
+      where: { followerId: viewerId, targetNickname: { not: null } },
+      select: { targetNickname: true },
+  })
+    const nicknames = follows.map((f) => f.targetNickname!)
+      where = {
+      ...where,
+      author: { nickname: { in: nicknames } },
     }
+  }
 
     if (cursor) {
       // Cursor: postId of last seen item
@@ -270,22 +268,17 @@ export class PrismaPostRepository implements IPostRepository {
   // ─── S3: full ranker support ─────────────────────────────────────────────────
 
   async getCandidates(viewerId: string, universityDomain: string, limit: number): Promise<PostWithMeta[]> {
-    // Prefer the viewer's university; if too few candidates there, broaden to all
-    // universities so "Para ti" is never empty (cross-university candidate source).
-    const expiryOr: Prisma.PostWhereInput = { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
-    const uniCount = await this.db.post.count({
-      where: { deletedAt: null, author: { universityDomain }, ...expiryOr },
-    })
-    const where: Prisma.PostWhereInput = uniCount >= 10
-      ? { deletedAt: null, author: { universityDomain }, ...expiryOr }
-      : { deletedAt: null, ...expiryOr }
-
     const posts = await this.db.post.findMany({
-      where,
+      where: {
+        deletedAt: null,
+        author: { universityDomain },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: FEED_INCLUDE(viewerId),
     })
+
     return this._mapPosts(posts, viewerId)
   }
 
@@ -316,6 +309,7 @@ export class PrismaPostRepository implements IPostRepository {
         authorNameEffect: p.isIdentityRevealed ? (p.author.equippedNameEffect ?? null) : null,
         authorTitle:      p.isIdentityRevealed ? (p.author.equippedTitle ?? null) : null,
         isMine:           p.authorId === viewerId,
+        authorStreakCount: p.author.streakCount ?? 0,
         hashtags:         p.hashtags.map((h) => h.hashtag.tag),
         media,
         myReaction:       p.reactions[0]?.type as ReactionType | null ?? null,
@@ -417,11 +411,10 @@ export class PrismaPostRepository implements IPostRepository {
   }
 
   // ─── private helpers ─────────────────────────────────────────────────────────
-
-  private async _voterHash(userId: string): Promise<string> {
-    // Anonymous vote tracking: just the userId is enough here since we
-    // store per-post hash as userId (no need for cryptographic hash in S2;
-    // full anonymous poll hash comes in S3 with dedicated service)
-    return userId
+private async _voterHash(userId: string): Promise<string> {
+    // ─── Corrección S3: userId hasheado con SHA-256 para anonimizar votos en la DB ───
+    const { createHash } = await import('node:crypto')
+    const salt = process.env.EMAIL_HASH_SALT ?? 'poll-anon-salt'
+    return createHash('sha256').update(userId + salt).digest('hex')
   }
 }

@@ -6,6 +6,7 @@ import { prisma } from '../infrastructure/db/prisma'
 import { PrismaUserRepository } from '../infrastructure/repositories/PrismaUserRepository'
 import { PrismaPostRepository } from '../infrastructure/repositories/PrismaPostRepository'
 import { CreatePostUseCase } from '../application/posts/CreatePostUseCase'
+import { GetPostUseCase } from '../application/posts/GetPostUseCase'
 import { DeletePostUseCase } from '../application/posts/DeletePostUseCase'
 import { GetFeedUseCase } from '../application/posts/GetFeedUseCase'
 import { ToggleReactionUseCase } from '../application/posts/ToggleReactionUseCase'
@@ -16,7 +17,7 @@ import { S3StorageService } from '../infrastructure/storage/S3StorageService'
 import { PrismaEmbeddingRepository } from '../infrastructure/repositories/PrismaEmbeddingRepository'
 import { PrismaGamificationRepository } from '../infrastructure/repositories/PrismaGamificationRepository'
 import { GamificationService } from '../application/gamification/GamificationService'
-import { streamProducer } from '../app'
+import { streamProducer } from '../streamProducer'
 
 interface JwtPayload { sub: string; nickname: string }
 
@@ -38,6 +39,7 @@ const postRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       await request.jwtVerify()
       const viewer  = request.user as JwtPayload
       const query   = FeedQuerySchema.parse(request.query)
+      // ─── use case instanciado por request — pendiente mover fuera del handler ───
       const useCase = new GetFeedUseCase(postRepo, userRepo, embeddingRepo)
       const result  = await useCase.execute({
         tab:      query.tab,
@@ -49,19 +51,22 @@ const postRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   )
 
   // ─── GET /posts/public — no auth, read-only feed (landing / logged-out) ───────
+  const PublicFeedQuerySchema = z.object({
+    tab:    z.enum(['recent', 'trending']).default('recent'),
+    cursor: z.string().optional(),
+  })
   app.get(
     '/public',
     {
       config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
       schema: {
-        querystring: zodToJsonSchema(z.object({
-          tab:    z.enum(['recent', 'trending']).default('recent'),
-          cursor: z.string().optional(),
-        })),
+        querystring: zodToJsonSchema(PublicFeedQuerySchema),
       },
     },
     async (request, reply) => {
-      const query   = request.query as { tab: 'recent' | 'trending'; cursor?: string }
+      // ─── Validación real con Zod (no cast) — mismo patrón que /posts/feed ───
+      const query   = PublicFeedQuerySchema.parse(request.query)
+      // ─── use case instanciado por request — pendiente mover fuera del handler ───
       const useCase = new GetFeedUseCase(postRepo, userRepo, embeddingRepo)
       // viewerId '' → no per-viewer reactions/ownership; simple recent/trending sort
       const result  = await useCase.execute({ tab: query.tab, viewerId: '', cursor: query.cursor })
@@ -77,11 +82,12 @@ const postRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       schema: { params: zodToJsonSchema(z.object({ id: z.string() })) },
     },
     async (request, reply) => {
+      // ─── Ahora pasa por GetPostUseCase — mismo patrón que el resto de rutas ───
       const { id } = request.params as { id: string }
-      const post = await postRepo.getPublicPost(id)
-      if (!post) throw app.httpErrors.notFound('Post no encontrado.')
-      const { authorId: _drop, ...publicPost } = post  // never expose UUID
-      return reply.send(publicPost)
+      const useCase = new GetPostUseCase(postRepo)
+      const post = await useCase.execute(id)
+        if (!post) throw app.httpErrors.notFound('Post no encontrado.')
+    return reply.send(post)
     },
   )
 
@@ -96,6 +102,7 @@ const postRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       await request.jwtVerify()
       const author  = request.user as JwtPayload
       const body    = CreatePostSchema.parse(request.body)
+      // ─── use case instanciado por request — pendiente mover fuera del handler ───
       const useCase = new CreatePostUseCase(postRepo, userRepo, streamProducer, embeddingRepo)
       try {
         const post = await useCase.execute({

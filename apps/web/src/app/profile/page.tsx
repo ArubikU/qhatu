@@ -10,7 +10,6 @@ import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
 import { Avatar } from '@/components/common/Avatar'
 import { NameEffect } from '@/components/rewards/NameEffect'
-import { TitleChip } from '@/components/rewards/TitleChip'
 
 export default function ProfilePage() {
   const router          = useRouter()
@@ -47,38 +46,37 @@ export default function ProfilePage() {
         {/* Header actions — floating liquid-glass bar */}
         <div className="flex justify-center mb-6">
           <div className="liquid-glass rounded-full px-2 py-1.5 flex items-center gap-1">
-            {/* Ranking + Recompensas — solo mobile (en desktop están en el sidebar) */}
             <button
               type="button"
               onClick={() => router.push('/rankings')}
               title="Ranking"
-              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/65 hover:text-white hover:bg-white/10 text-xs font-body transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/65 hover:text-white hover:bg-white/10 text-xs font-body transition-colors"
             >
-              <Trophy size={14} /> Ranking
+              <Trophy size={14} /> <span className="hidden xs:inline">Ranking</span>
             </button>
             <button
               type="button"
               onClick={() => router.push('/rewards')}
               title="Recompensas"
-              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/25 text-lavender hover:text-white text-xs font-body transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/25 text-lavender hover:text-white text-xs font-body transition-colors"
             >
               <Sparkles size={14} /> Recompensas
             </button>
             <button
               type="button"
               onClick={() => router.push('/settings')}
-              title="Configuración y seguridad"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/65 hover:text-white hover:bg-white/10 text-xs font-body transition-colors"
+              title="Seguridad"
+              className="flex items-center justify-center w-9 h-9 rounded-full text-white/65 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <Settings size={15} /> <span className="hidden md:inline">Configuración</span>
+              <Settings size={15} />
             </button>
             <button
               type="button"
               onClick={handleLogout}
-              title="Cerrar sesión"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/65 hover:text-red-400 hover:bg-white/10 text-xs font-body transition-colors"
+              title="Salir"
+              className="flex items-center justify-center w-9 h-9 rounded-full text-white/65 hover:text-red-400 hover:bg-white/10 transition-colors"
             >
-              <LogOut size={15} /> <span className="hidden md:inline">Salir</span>
+              <LogOut size={15} />
             </button>
           </div>
         </div>
@@ -113,7 +111,9 @@ export default function ProfilePage() {
             </NameEffect>
           </h1>
           {profile?.equipped?.title && getReward(profile.equipped.title) && (
-            <div className="mb-1.5"><TitleChip reward={getReward(profile.equipped.title)!} /></div>
+            <span className="text-xs text-lavender bg-primary/15 border border-primary/30 rounded-full px-3 py-0.5 mb-1 font-body">
+              {getReward(profile.equipped.title)!.name}
+            </span>
           )}
           {profile?.faculty && (
             <span className="text-sm text-white/50 font-body">{profile.faculty}</span>

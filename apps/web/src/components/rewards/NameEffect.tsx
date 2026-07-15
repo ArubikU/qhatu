@@ -1,7 +1,6 @@
 'use client'
 import { getReward, type Reward } from '@qhatu/shared'
 import type { CSSProperties } from 'react'
-import { useHolo, type HoloMode } from '@/components/rewards/HoloField'
 
 interface NameEffectProps {
   effectId?: string | null
@@ -9,46 +8,17 @@ interface NameEffectProps {
   className?: string
 }
 
-// Variants painted by the global GLSL canvas (real shader text)
-const GLSL_MODE: Record<string, HoloMode> = {
-  holo: 'holo', gold: 'gold', chrome: 'chrome', blood: 'blood', rainbow: 'rainbow',
-}
-
 /**
- * Renders a nickname with its equipped effect.
- *  - holo/gold/chrome/blood/rainbow → real GLSL via the global HoloField canvas
- *  - glitch → layered RGB-split DOM
- *  - rest → CSS gradient/glow
+ * Renders a nickname with its equipped text effect (pure CSS).
+ * Falls back to plain white text if no/unknown effect.
  */
 export function NameEffect({ effectId, children, className }: NameEffectProps) {
   const reward = effectId ? getReward(effectId) : undefined
   if (!reward || reward.category !== 'NAME_EFFECT') {
     return <span className={className}>{children}</span>
   }
-  if (GLSL_MODE[reward.variant]) {
-    return <HoloName text={children} mode={GLSL_MODE[reward.variant]!} className={className} />
-  }
-  if (reward.variant === 'glitch') return <GlitchText className={className}>{children}</GlitchText>
-
   const { style, cls } = effectStyle(reward)
   return <span className={`${className ?? ''} ${cls}`.trim()} style={style}>{children}</span>
-}
-
-/** Hidden span (reserves layout) painted by the global GLSL HoloField canvas. */
-function HoloName({ text, mode, className }: { text: string; mode: HoloMode; className?: string }) {
-  const ref = useHolo(text, mode)
-  return <span ref={ref} className={className} style={{ visibility: 'hidden' }}>{text}</span>
-}
-
-/** RGB-split glitch — 2 coloured copies clipped + offset behind the white text. */
-function GlitchText({ children, className }: { children: string; className?: string }) {
-  return (
-    <span className={`relative inline-block ${className ?? ''}`.trim()}>
-      <span className="relative z-10 text-white">{children}</span>
-      <span aria-hidden style={{ position: 'absolute', inset: 0, color: '#00E5FF', animation: 'rwd-glitch-a 2.2s infinite linear', opacity: 0.85 }}>{children}</span>
-      <span aria-hidden style={{ position: 'absolute', inset: 0, color: '#FF4D6D', animation: 'rwd-glitch-b 2.6s infinite linear', opacity: 0.85 }}>{children}</span>
-    </span>
-  )
 }
 
 function effectStyle(r: Reward): { style: CSSProperties; cls: string } {
@@ -72,7 +42,7 @@ function effectStyle(r: Reward): { style: CSSProperties; cls: string } {
       return { style: { backgroundImage: 'linear-gradient(90deg,#FF4D6D,#FFB23E,#9BFF3D,#00E5FF,#7B3FF2,#FF4D6D)', animation: 'rwd-shimmer 3s linear infinite, rwd-rainbow 6s linear infinite' }, cls: 'rwd-text-static' }
 
     case 'gold':
-      return { style: { backgroundImage: 'linear-gradient(95deg,#8C6A1E,#FFD700,#FFF6C9,#FFB23E,#8C6A1E)', filter: 'url(#qhatu-foil)' }, cls: 'rwd-text-anim' }
+      return { style: { backgroundImage: 'linear-gradient(90deg,#FFD700,#FFF6C9,#FFB23E,#FFD700)' }, cls: 'rwd-text-anim' }
 
     case 'glitch':
       return { style: { color: c0, textShadow: `1.5px 0 ${c1}, -1.5px 0 ${c2}`, animation: 'rwd-glitch 0.8s steps(2) infinite' }, cls: '' }
@@ -81,14 +51,13 @@ function effectStyle(r: Reward): { style: CSSProperties; cls: string } {
       return { style: { color: '#00FF66', textShadow: '0 0 6px #00FF66', fontFamily: 'monospace' }, cls: '' }
 
     case 'holo':
-      // iridescent gradient + animated procedural sheen (SVG turbulence)
-      return { style: { backgroundImage: 'linear-gradient(90deg,#7B3FF2,#00E5FF,#9BFF3D,#FF4DA6,#7B3FF2)', filter: 'url(#qhatu-holo)', animation: 'rwd-shimmer 2.5s linear infinite, rwd-rainbow 8s linear infinite' }, cls: 'rwd-text-static' }
+      return { style: { backgroundImage: 'linear-gradient(90deg,#7B3FF2,#00E5FF,#FF4DA6,#7B3FF2)', animation: 'rwd-shimmer 2.5s linear infinite, rwd-rainbow 8s linear infinite' }, cls: 'rwd-text-static' }
 
     case 'blood':
-      return { style: { backgroundImage: 'linear-gradient(95deg,#7A0010,#FF1A3C,#FF5566,#8B0000,#7A0010)', filter: 'url(#qhatu-holo)', animation: 'rwd-pulse 2s ease-in-out infinite, rwd-shimmer 4s linear infinite' }, cls: 'rwd-text-static' }
+      return { style: { backgroundImage: grad(['#FF1A3C', '#8B0000', '#FF1A3C']), animation: 'rwd-pulse 2s ease-in-out infinite, rwd-shimmer 4s linear infinite' }, cls: 'rwd-text-static' }
 
     case 'chrome':
-      return { style: { backgroundImage: 'linear-gradient(90deg,#6B7280,#FFFFFF,#9BA3B5,#E8E8F0,#6B7280)', filter: 'url(#qhatu-foil)' }, cls: 'rwd-text-anim' }
+      return { style: { backgroundImage: 'linear-gradient(90deg,#9BA3B5,#FFFFFF,#9BA3B5,#E8E8F0)' }, cls: 'rwd-text-anim' }
 
     case 'shadow':
       return { style: { color: c0, textShadow: '0 2px 6px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.6)' }, cls: '' }

@@ -2,11 +2,11 @@
   "name": "@qhatu/api",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/app.js",
+    "start": "node dist/server.js",
+    "postinstall": "prisma generate",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
@@ -40,6 +40,7 @@
     "@types/web-push": "^3.6.3",
     "typescript": "^5.7.2",
     "tsx": "^4.19.2",
+    "esbuild": "^0.24.0",
     "prisma": "^5.22.0",
     "eslint": "^8"
   }

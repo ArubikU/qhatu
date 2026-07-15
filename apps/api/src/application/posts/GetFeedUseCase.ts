@@ -60,6 +60,8 @@ export class GetFeedUseCase {
     const [candidates, viewerCtx, userVector] = await Promise.all([
       this.postRepo.getCandidates(input.viewerId, viewer.universityDomain, CANDIDATE_POOL),
       this.postRepo.getViewerFeedContext(input.viewerId),
+      // ─── P2: el vector del viewer podría cachearse en Redis con TTL de 5min ───
+      // ─── para evitar recalcularlo en cada carga del feed. Pendiente implementar. ───
       this.embeddingRepo.getUserVector(input.viewerId),
     ])
 
@@ -92,7 +94,8 @@ export class GetFeedUseCase {
         hoursLeft,
         createdAt:          new Date(post.createdAt),
         velocityScore:      post.velocityScore,
-        authorStreakCount:  0,  // populated from user data in S4
+        // ─── streakCount del autor para el bonus de racha en el algoritmo ───
+        authorStreakCount:  post.authorStreakCount ?? 0,
       }
 
       const ctx: ViewerContext = {

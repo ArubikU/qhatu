@@ -1,5 +1,6 @@
 'use client'
 import { getReward, RARITY_COLOR, type Reward } from '@qhatu/shared'
+import { WebGLFrame } from '@/components/rewards/WebGLFrame'
 
 interface RewardFrameProps {
   /** Frame reward id (FRAME category). If undefined/unknown → no frame, just children. */
@@ -9,51 +10,28 @@ interface RewardFrameProps {
 }
 
 /**
- * Wraps an avatar with a decorative frame.
- *  - MYTHIC  → animated conic-gradient ring (CSS — shader-like, zero WebGL contexts)
- *  - others  → per-variant SVG ring
- * Pure CSS/SVG → safe to render many at once (gallery) with no context limits.
+ * Wraps an avatar with a decorative SVG frame drawn per-variant.
+ * Pure SVG + CSS — no external assets.
  */
 export function RewardFrame({ frameId, size, children }: RewardFrameProps) {
   const reward = frameId ? getReward(frameId) : undefined
   if (!reward || reward.category !== 'FRAME') return <>{children}</>
 
+  // Frame draws slightly larger than the avatar
   const pad   = Math.round(size * 0.12)
   const total = size + pad * 2
+
+  // MYTHIC frames render a real animated WebGL plasma ring
+  const useWebGL = reward.rarity === 'MYTHIC'
+  const colors = reward.colors?.length ? reward.colors : [RARITY_COLOR[reward.rarity]]
 
   return (
     <div style={{ position: 'relative', width: total, height: total, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {reward.rarity === 'MYTHIC'
-          ? <ConicRing reward={reward} size={total} avatarSize={size} />
-          : <FrameSvg reward={reward} size={total} />}
+        {useWebGL ? <WebGLFrame colors={colors} size={total} /> : <FrameSvg reward={reward} size={total} />}
       </div>
       <div style={{ width: size, height: size }}>{children}</div>
     </div>
-  )
-}
-
-/** Animated rotating conic-gradient ring (mythic). CSS masked to a ring shape. */
-function ConicRing({ reward, size, avatarSize }: { reward: Reward; size: number; avatarSize: number }) {
-  const cols = reward.colors?.length ? reward.colors : [RARITY_COLOR[reward.rarity]]
-  // Loop the gradient back to first colour for a seamless spin
-  const stops = [...cols, cols[0]].join(', ')
-  const innerR = avatarSize / 2          // transparent hole = avatar
-  const outerR = size / 2
-  const mask = `radial-gradient(circle at 50% 50%, transparent ${innerR}px, #000 ${innerR + 1.5}px, #000 ${outerR}px, transparent ${outerR}px)`
-  // Wobble only at larger sizes (profile/feed) — at gallery thumbnail size it over-distorts
-  const wobble = avatarSize >= 70 ? 'url(#qhatu-wobble) ' : ''
-  return (
-    <div
-      style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: `conic-gradient(from 0deg, ${stops})`,
-        WebkitMask: mask, mask,
-        animation: 'rwd-spin 6s linear infinite',
-        // procedural wobble (SVG turbulence) + neon glow → organic shader-like ring
-        filter: `${wobble}drop-shadow(0 0 ${size * 0.07}px ${cols[0]})`,
-      }}
-    />
   )
 }
 

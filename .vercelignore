@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+.next
+**/.next
+dist
+**/dist
+**/*.tsbuildinfo
+entregable-1
+docs
+*.zip
+*.pdf
+apps/api/scripts/seed-data/_raw_tweets.json
